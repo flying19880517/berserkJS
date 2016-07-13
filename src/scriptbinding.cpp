@@ -1,10 +1,14 @@
-#include "scriptbinding.h"
-#include "commandparameters.h"
-#include "scriptsignalfactory.h"
-#include "consts.h"
 #include <QNetworkAccessManager>
 #include <QNetworkConfigurationManager>
 #include <QNetworkReply>
+
+#include "scriptbinding.h"
+#include "commandparameters.h"
+#include "scriptsignalfactory.h"
+#include "monitordatamap.h"
+#include "networkresources.h"
+#include "consts.h"
+
 
 // 静态非int常量不可以在类体内初始化……
 const QString ScriptBinding::ROOT = "App";
@@ -418,6 +422,7 @@ QScriptValue ScriptBinding::wrapperHttpDataArray(QMap<QString, MonitorData*> map
         obj.setProperty("XCacheVarnish", QScriptValue(map[keys.at(i)]->XCacheVarnish), QScriptValue::ReadOnly);
         obj.setProperty("PoweredByChinaCache", QScriptValue(map[keys.at(i)]->PoweredByChinaCache), QScriptValue::ReadOnly);
         obj.setProperty("SINALB", QScriptValue(map[keys.at(i)]->SINALB), QScriptValue::ReadOnly);
+        obj.setProperty("ServerIPAddress", QScriptValue(map[keys.at(i)]->ServerIPAddress), QScriptValue::ReadOnly);
 
         // 遍历输出未知应答头（自定义私有头）
         QMap<QString, QString> other = map[keys.at(i)]->other;
@@ -583,6 +588,9 @@ void ScriptBinding::initNativeMethodToRootSpace()
 
     nativeMathod = engine->newFunction(ScriptBinding::getNetworkData, QScriptValue::ReadOnly | QScriptValue::Undeletable);
     getRootSpace().setProperty("networkData", nativeMathod, QScriptValue::ReadOnly | QScriptValue::Undeletable);
+
+    nativeMathod = engine->newFunction(ScriptBinding::getNetworkResourceData, QScriptValue::ReadOnly | QScriptValue::Undeletable);
+    getRootSpace().setProperty("networkResources", nativeMathod, QScriptValue::ReadOnly | QScriptValue::Undeletable);
 
     nativeMathod = engine->newFunction(ScriptBinding::httpRequest);
     getRootSpace().setProperty("httpRequest", nativeMathod, QScriptValue::ReadOnly | QScriptValue::Undeletable);
@@ -766,6 +774,67 @@ QScriptValue ScriptBinding::getNetworkData(QScriptContext *context, QScriptEngin
     QMap<QString, MonitorData*> map = MonitorDataMap::getMonitorDataMap()->getData();
     return wrapperHttpDataArray(map, interpreter);
 }
+
+QScriptValue ScriptBinding::getNetworkResourceData(QScriptContext *context, QScriptEngine *interpreter)
+{
+    QList<NetworkResources::resource> rl = NetworkResources::getInstance()->getData();
+    qint64 c = rl.length();
+    QScriptValue data = interpreter->newArray();
+    for (qint64 i = 0; i < c; ++i) {
+        NetworkResources::resource res = rl.at(i);
+        QScriptValue box = interpreter->newObject();
+        QScriptValue request = interpreter->newObject();
+        QScriptValue response = interpreter->newObject();
+
+        QScriptValue requestHeader = interpreter->newObject();
+        QScriptValue responseHeader = interpreter->newObject();
+        QScriptValue requestBase = interpreter->newObject();
+        QScriptValue responseBase  = interpreter->newObject();
+        QScriptValue timings = interpreter->newObject();
+
+        // == request ==
+        foreach(QString key, res.request.headers.keys()) {
+            requestHeader.setProperty(key, QScriptValue(res.request.headers[key]));
+        }
+        request.setProperty("headers", requestHeader);
+
+        requestBase.setProperty("serverIPAddress", QScriptValue(res.request.base["serverIPAddress"].toString()));
+        requestBase.setProperty("url", QScriptValue(res.request.base["url"].toString()));
+        requestBase.setProperty("FromCache", QScriptValue(res.request.base["FromCache"].toBool()));
+        requestBase.setProperty("method", QScriptValue(res.request.base["method"].toString()));
+        requestBase.setProperty("bodySize", QScriptValue(res.request.base["bodySize"].toInt()));
+        requestBase.setProperty("postData", QScriptValue(res.request.base["postData"].toString()));
+        requestBase.setProperty("queryString", QScriptValue(res.request.base["queryString"].toString()));
+        requestBase.setProperty("headersSize", QScriptValue(res.request.base["headersSize"].toInt()));
+        request.setProperty("base", requestBase);
+
+        box.setProperty("request", request);
+
+        // == response ==
+        foreach(QString key, res.response.headers.keys()) {
+            responseHeader.setProperty(key, QScriptValue(res.response.headers[key]));
+        }
+        response.setProperty("headers", responseHeader);
+
+        responseBase.setProperty("status", QScriptValue(res.response.base["status"].toInt()));
+        responseBase.setProperty("statusText", QScriptValue(res.response.base["statusText"].toString()));
+        responseBase.setProperty("headersSize", QScriptValue(res.response.base["headersSize"].toInt()));
+        responseBase.setProperty("bodySize", QScriptValue(res.response.base["bodySize"].toInt()));
+        response.setProperty("base", responseBase);
+        box.setProperty("response", response);
+
+
+        // == resoponse ==
+        foreach(QString key, res.timings.keys()) {
+            timings.setProperty(key, QScriptValue((int)res.timings[key]));
+        }
+        box.setProperty("timings", timings);
+
+        data.setProperty(i, box);
+    }
+    return data;
+}
+
 
 /* selecotor 控制相关方法实现 */
 

@@ -40,6 +40,7 @@
 
 - **新浪微博**：已使用 berserkJS 构建前端性能监测数据分析平台，防止微博主要产品在不停开发迭代时，页面性能产生退化。
 - **Cisco**: 用于 WebEx 项目的自动化测试
+- **腾讯新闻**: 用于新闻看比赛频道的自动化测试需求覆盖，方便项目重构。
 
 #API 页面
 
@@ -48,7 +49,7 @@ http://tapir-dream.github.com/berserkJS
 
 #介绍PPT
 
-- **下载地址**：http://t.cn/zWcKani
+- **观看地址**：http://vdisk.weibo.com/s/Des0SwUIlPVp
 
 
 #如何使用
@@ -62,7 +63,13 @@ http://tapir-dream.github.com/berserkJS
 
 >【官网地址】 http://qt-project.org/downloads 
 
->【立即下载】 http://download.qt-project.org/official_releases/qt/4.8/4.8.5/qt-mac-opensource-4.8.5.dmg
+>【立即下载】 http://download.qt-project.org/official_releases/qt/4.8/4.8.6/qt-opensource-mac-4.8.6-1.dmg
+
+- 如果需要自己编译则步骤如下：
+
+1. 下载如上Qt 4.8 依赖库并安装
+2. 在 src 目录下执行 qmake berserkjs.pro -spce macx-xcode 命令生成 xcode 工程文件
+3. 使用 xcode 开启工程文件执行编译
 
 ## Linux
 1. 下载 Qt libraries 4.8.5 for Linux/X11

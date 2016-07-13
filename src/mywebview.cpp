@@ -1,5 +1,6 @@
 #include "mywebview.h"
 #include "pageextension.h"
+#include "networkresources.h"
 #include "consts.h"
 #include <QTemporaryFile>
 #include <QPrinter>
@@ -385,6 +386,7 @@ QScriptValue MyWebView::netListener(QScriptValue enabled)
     if (enabled.toBool() == true) {
         NetworkAccessManager::isListener = true;
         MonitorDataMap::getMonitorDataMap()->clear();
+        NetworkResources::getInstance()->clear();
     } else {
         NetworkAccessManager::isListener = false;
     }
@@ -489,12 +491,8 @@ QScriptValue MyWebView::setViewport(QScriptValue size)
 
 QScriptValue MyWebView::timer(QScriptValue scriptFunc, QScriptValue timeout, bool singleShot)
 {
-    bool isString = false;
-    if (scriptFunc.isString()) {
-        scriptFunc = appEngine->evaluate("new Function('return " + scriptFunc.toString() + ";')");
-        isString = true;
-    }
-    if (!scriptFunc.isFunction()) {
+
+    if (!(scriptFunc.isFunction() || scriptFunc.isString())) {
         return QScriptValue::UndefinedValue;
     }
     if (timeout.toInt32() < 0) {
@@ -516,9 +514,7 @@ QScriptValue MyWebView::timer(QScriptValue scriptFunc, QScriptValue timeout, boo
     // 记录相关环境内容
     ContextInfo contextInfo;
     contextInfo.thisObject = appEngine->globalObject();
-    contextInfo.activationObject = isString == true
-            ? scriptFunc
-            : appEngine->currentContext()->activationObject();
+    contextInfo.activationObject = appEngine->currentContext()->activationObject();
     contextInfo.func = scriptFunc;
 
     TimerInfo timerInfo;
@@ -1739,8 +1735,15 @@ void MyWebView::onTimeout()
         return;
 
     ContextInfo contextInfo = timeEventMap[key].info;
-    contextInfo.func.setScope(contextInfo.activationObject.scope());
-    contextInfo.func.call(contextInfo.thisObject);
+    if (contextInfo.func.isFunction()) {
+        contextInfo.func.setScope(contextInfo.activationObject.scope());
+        contextInfo.func.call(contextInfo.thisObject);
+    }
+
+    if (contextInfo.func.isString()) {
+        appEngine->evaluate(contextInfo.func.toString());
+    }
+
     if (timer->isSingleShot()) {
         timeEventMap.remove(key);
         delete timer;
